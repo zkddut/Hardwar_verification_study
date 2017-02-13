@@ -1,0 +1,78 @@
+
+
+###############################################################################
+#
+# $Id: Makefile main:1.3 May 26, 2016 11:12:54 PM kaizhou@sfbay $
+#
+# NOTE: The only "derived file build" documentation is in the template files.
+#       You may be looking at an old copy of a template file right now.
+#       If that is the case, then ignore the following and read the
+#       latest template file's documentation. The path to the template
+#       files is probably :/verif_shared/toolrc/common/gmake/templates.
+#       If your file is based on an old template then you should update.
+#       Compare NOW!
+#
+# NOTE: Only works with "gmake", not "make".
+#
+# This is a slave/low-level Makefile. It will be called BEFORE any Vera or
+# Verilog building takes place if you put this in your RTL directory Makefile:
+#    CSRTOOL_FILES := . . .
+#
+#    $(CSRTOOL_FILES):
+#           $(MAKE) -C csrtool -f Makefile SLAVE=1 derivedbuild
+# 
+# You can do whatever you need in here but there are certain REQUIREMENTS.
+#
+# 0) You must update any place marked: CUSTOMIZE
+#
+# 1) The files that get checked into the repository are the the source
+#    files and the Makefiles, NOT the derived files.
+#
+# 2) When derived files are up-to-date compared to the source files,
+#    the Makefile MUST NOT DO ANYTHING. That is what make is for and
+#    the build process requires this!!!
+#
+# 3) The Makefile should always be a dependency. You want to build if
+#    the makefile has changed! The variable $(MAKEDEPEND) holds the
+#    names of the makefiles (names could be changed in the future so always
+#    use $(MAKEDEPEND)).
+#
+# 4) All Makefiles must have the same name (Makefile).
+#
+# 5) Each call to $(MAKE) for slave Makefiles will pass all "export"
+#    variables down to the slave Makefile. This always includes any AAA=5
+#    type defines given on the command line in the original call to gmake.
+#
+# General Contact:                (Tom Thatcher)
+#
+###############################################################################
+
+#Note: This is the top level Makefile that invoke the Makefile.one to get around
+#      the limited number of csr modules supported
+
+MAKEFILE_NAME = Makefile
+
+# REQUIRED:
+MAKEDEPEND := $(MAKEFILE_NAME) $(DV_ROOT)/verif_shared/toolrc/common/gmake/include/inc.stdDerivedBuildSlave.makefile
+
+# REQUIRED: --> ALL derived files as DERIVEDFILES. <-- REQUIRED
+DERIVEDFILES := DAX_SN3_Diag_Cov.sv DAX_SN3_OP_duplicate.txt SN3_OP.sv
+
+# REQUIRED:
+derivedbuild: $(DERIVEDFILES)
+
+SN3_OP.sv: $(MAKEDEPEND) fmtCSV2SV.pl SN3_OP_FMT.csv
+	remove_data_local SN3_OP.sv
+	fmtCSV2SV.pl -outfile=SN3_OP.sv -outarray=SearchTable -outtype=dynamic SN3_OP_FMT.csv
+
+DAX_SN3_Diag_Cov.sv: $(MAKEDEPEND) SN3_OP.sv SN3_Full_Cov_Gen.pl
+	SN3_Full_Cov_Gen.pl -input=SN3_OP.sv
+
+DAX_SN3_OP_duplicate.txt: $(MAKEDEPEND) SN3_OP.sv SN3_OP_duplicate_check.pl
+	SN3_OP_duplicate_check.pl -input=SN3_OP.sv
+
+
+# REQUIRED: has targets clean and derivedFiles.txt
+include $(DV_ROOT)/verif_shared/toolrc/common/gmake/include/inc.stdDerivedBuildSlave.makefile
+
+

@@ -1,0 +1,237 @@
+//
+// Copyright (c) 2015, Oracle and/or its affiliates.  All rights reserved.
+// Oracle Confidential -- Highly Restricted
+//
+// Created        : Fri Jun  5 2015
+// Primary Contact: kaidi.zhou@oracle.com
+//
+// Description: Constraint Table for ccb field, data randomize and error injection.
+
+`ifndef DAXCCBCONST__SV 
+`define DAXCCBCONST__SV 
+
+`include "ccb_constraint_defines.svh" 
+
+class CcbConstTableTool #(type EnumType = OpcodeType_E, int ArrSize = `V_DXU_CONSTRAINT__MAX_SZ);
+
+  static function SetConstValue_enum(ref int array_wt[string], input int global_wt[string], input int default_wt[string], input int ReservedValue, input int DefaultValue);
+    EnumType e;
+    string str;
+    int find_user_const_SET;
+    int i;
+
+//-----------------Set Array Value to Reserved Value--------------------------
+    if (ReservedValue == 1) begin
+      e = e.first();
+      str = e.name();
+      array_wt[str] = `V_CCB_CONST_RESERVE_VALUE;
+      for (int i = 1; i < e.num(); i++) begin 
+        e = e.next();
+        str = e.name(); 
+        array_wt[str] = `V_CCB_CONST_RESERVE_VALUE;
+      end
+    end else begin
+      if (DefaultValue == 0) begin
+//-----------------------Merge Scenario and Global array value---------------------
+//Rule 1: Value 0 in array will always has higher priority when merge;
+//Rule 2: Otherwise Scenario has higher priority than Global;
+        foreach(array_wt[i]) begin
+          if (global_wt[i] == 0) begin
+            array_wt[i] = 0;
+          end else if (global_wt[i] > 0) begin
+            if ((array_wt[i] != 0) && (array_wt[i] == `V_CCB_CONST_RESERVE_VALUE)) begin
+              array_wt[i] = global_wt[i];
+            end
+          end
+        end
+      end else begin
+//-----------------Set Scenario array default Value-------------------------------
+//Rule 1: Any non-zero value will zero out all other entry value in this array. 
+//Rule 2: Zero value only will assign default value to other entry in this array.
+//Rule 3: All Reserved Value(None pass in value) will assign default value to this array.
+        find_user_const_SET = 0;
+        foreach(array_wt[i]) begin
+          if ((array_wt[i] != `V_CCB_CONST_RESERVE_VALUE) && (array_wt[i] != 0)) begin  //IF user set value to 0, keep other array entry to default
+            find_user_const_SET = 1;                                                    //IF user set both value 0 and value other, set other array entry to 0
+            break;
+          end 
+        end
+        foreach(array_wt[i]) begin
+          if (array_wt[i] == `V_CCB_CONST_RESERVE_VALUE) begin
+            if (find_user_const_SET == 1) begin                                 //  if find_user_const_SET == 1 , set all reserved_value as 0
+              array_wt[i] = 0;
+            end else begin                                                      //  if find_user_const_SET == 0 , set default value 
+              array_wt[i] = default_wt[i];
+            end
+          end
+        end
+      end
+    end
+  endfunction //SetConstValue_enum
+
+  static function void SetConstValue_array(ref int array_wt[ArrSize], input int global_wt[ArrSize], input int default_wt[ArrSize], input ReservedValue, input int DefaultValue);
+    int find_user_const_SET;
+    int i;
+//-----------------Set Array Value to Reserved Value--------------------------
+    if (ReservedValue == 1) begin
+      foreach(array_wt[i]) begin
+        array_wt[i] = `V_CCB_CONST_RESERVE_VALUE;
+      end
+    end else begin
+      if (DefaultValue == 0) begin
+//-----------------------Merge Scenario and Global array value---------------------
+//Rule 1: Value 0 in array will always has higher priority when merge;
+//Rule 2: Otherwise Scenario has higher priority than Global;
+        foreach(array_wt[i]) begin
+          if (global_wt[i] == 0) begin
+            array_wt[i] = 0;
+          end else if (global_wt[i] > 0) begin
+            if ((array_wt[i] != 0) && (array_wt[i] == `V_CCB_CONST_RESERVE_VALUE)) begin
+              array_wt[i] = global_wt[i];
+            end
+          end
+        end
+      end else begin
+//-----------------Set Scenario array default Value-------------------------------
+//Rule 1: Any non-zero value will zero out all other entry value in this array. 
+//Rule 2: Zero value only will assign default value to other entry in this array.
+//Rule 3: All Reserved Value(None pass in value) will assign default value to this array.
+        find_user_const_SET = 0;
+        foreach(array_wt[i]) begin
+          if ((array_wt[i] != `V_CCB_CONST_RESERVE_VALUE) && (array_wt[i] != 0)) begin  //IF user set value to 0, keep other array entry to default
+            find_user_const_SET = 1;                                                    //IF user set both value 0 and value other, set other array entry to 0
+            break;
+          end
+        end
+        
+        foreach(array_wt[i]) begin
+          if (array_wt[i] == `V_CCB_CONST_RESERVE_VALUE) begin
+            if (find_user_const_SET == 1) begin                                 //  if find_user_const_SET == 1 , set all reserved_value as 0
+              array_wt[i] = 0;
+            end else begin                                                      //  if find_user_const_SET == 0 , set default value 
+              array_wt[i] = default_wt[i];
+            end
+          end
+        end
+      end
+    end
+  endfunction //SetConstValue_array
+
+  static function string ConstPrint_enum(int array_wt[string]);
+    EnumType e;
+    string m, str;
+
+    e = e.first();
+    str = e.name();
+    $sformat(m, "[%s]:%0d  ", str, array_wt[str]);  
+    for (int i = 1; i < e.num(); i++) begin 
+      e = e.next();
+      str = e.name(); 
+      $sformat(m, {m, "[%s]:%0d  "}, str, array_wt[str]);
+    end
+    
+    return m;
+  endfunction //ConstPrint_enum
+
+//  static function string ConstPrint_array_lo_hi(int array_wt[ArrSize], bit[BitWidth] array_lo[ArrSize], bit[BitWidth] array_hi[ArrSize]);
+//    string m, str;
+//
+//    foreach(array_wt[i]) begin
+//      $sformat(m, {m, "[%d:%d]:%0d  "}, array_lo[i], array_hi[i], array_wt[i]);  
+//    end    
+//
+//    return m;
+//  endfunction //ConstPrint_array_lo_hi
+
+endclass
+
+class CcbConstraintTable;
+
+  string instStr;
+
+////////////////////////////////////CCBconst///////////////////////////////////////
+// ZKD: GENERATE_NAME_BEG
+// ZKD: GENERATE_NAME_END
+////////////////////////////////////CCBconst///////////////////////////////////////
+
+
+//////////////////////////////ErrorConst///////////////////////////////////////////
+//
+//////////////////////////////ErrorConst///////////////////////////////////////////
+
+  function new(string name = "CcbConstraintTable");
+    this.instStr = name;
+    MergeConstValue(1, 0, this);    //set Reserve// Not set Deafult 
+  endfunction
+
+  extern virtual function MergeConstValue(input int ReservedValue = 0, input int DefaultValue = 0, CcbConstraintTable MergeConst);   //Setup default_value and Creat entry for enum assoative constraint array//Set reserved value
+  extern virtual function ConstPrint();             //Print all array_value
+
+//TODO: constraint control bit function
+
+endclass  //CcbConstraintTable
+
+function CcbConstraintTable::MergeConstValue(input int ReservedValue = 0, input int DefaultValue = 0, CcbConstraintTable MergeConst);
+  ErrInjType_E err_e, err_e2;
+  string str, str2, str_group;
+  int sub_err_set = 0;
+
+  if (DefaultValue == 1) begin //After Parser set the value, errinjType will set
+    err_e = err_e.first();
+    str = err_e.name();
+    for (int i = 0; i < err_e.num(); i++) begin 
+      //$display("enum: %s, First 4bit: %4b, Last 8 bit: %8b, ErrInjType_wt:%d", str, err_e[11:8], err_e[7:0], this.ErrInjType_wt[str]);
+      if (err_e[7:0] == 8'b0000_0000) begin //Assume the first enum always has last 8 bits = 0
+        //$display("Err Group"); //Find a Err Group
+        str_group = str;
+        sub_err_set = 0;
+        if (this.ErrInjType_wt[str] != `V_CCB_CONST_RESERVE_VALUE) begin
+          //$display("Err Group set"); //Find Err Group value set
+          sub_err_set = 1;
+          err_e2 = err_e;
+          err_e2 = err_e2.next();
+          str2 = err_e2.name();
+          for (int j = 0; j < err_e2.num(); j ++) begin //Start check if any sub err is set or not
+            if (err_e2[7:0] == 8'b0000_0000) begin
+              //$display("Err Sub Group will set"); //No sub err set
+              break;
+            end else begin
+              if (this.ErrInjType_wt[str2] != `V_CCB_CONST_RESERVE_VALUE) begin
+                sub_err_set = 0;
+                //$display("Err Sub Group will not set"); //At least one sub err set
+                break;
+              end
+            end
+            err_e2 = err_e2.next();
+            str2 = err_e2.name();    
+          end
+        end
+      end else begin
+        if (sub_err_set == 1) begin //Start set sub err group
+          //$display("Err Sub Group start set");
+          this.ErrInjType_wt[str] = this.ErrInjType_wt[str_group];
+        end
+      end
+      //$display("enum: %s, First 4bit: %4b, Last 8 bit: %8b, ErrInjType_wt:%d", str, err_e[11:8], err_e[7:0], this.ErrInjType_wt[str]);
+      err_e = err_e.next();
+      str = err_e.name();
+    end
+  end
+
+// ZKD: GENERATE_FUNC_BEG
+// ZKD: GENERATE_FUNC_END
+
+endfunction //MergeConstValue
+
+function CcbConstraintTable::ConstPrint();
+  string str, m, final_str;
+// ZKD: GENERATE_PRINT_BEG
+// ZKD: GENERATE_PRINT_END
+  `dlog_info(instStr, `FORMAT(" \n %s ", final_str));
+
+endfunction //ConstPrint
+
+
+`endif
+
+
